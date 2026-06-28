@@ -5,13 +5,14 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F5F5F5">
+    android:background="?android:attr/colorBackground">
 
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/mainCard"
         android:layout_width="340dp"
         android:layout_height="0dp"
         android:layout_margin="20dp"
+        app:cardBackgroundColor="?attr/colorSurface"
         app:cardCornerRadius="20dp"
         app:cardElevation="10dp"
         app:layout_constraintTop_toTopOf="parent"
@@ -56,8 +57,8 @@
                     android:layout_marginStart="8dp"
                     android:text="Connected"
                     android:textColor="#2E7D32"
-                    android:textStyle="bold"
-                    android:textSize="16sp"/>
+                    android:textSize="16sp"
+                    android:textStyle="bold"/>
 
             </LinearLayout>
 
@@ -69,8 +70,9 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Send Command"
-                android:textStyle="bold"
-                android:textSize="18sp"/>
+                android:textColor="?attr/colorOnSurface"
+                android:textSize="18sp"
+                android:textStyle="bold"/>
 
             <com.google.android.material.textfield.TextInputLayout
                 android:layout_width="match_parent"
@@ -81,7 +83,7 @@
                     android:id="@+id/etCommand"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="Type your command"/>
+                    android:hint="Enter command..."/>
 
             </com.google.android.material.textfield.TextInputLayout>
 
@@ -107,44 +109,62 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="20dp"
                 android:text="Results"
-                android:textStyle="bold"
-                android:textSize="18sp"/>
+                android:textColor="?attr/colorOnSurface"
+                android:textSize="18sp"
+                android:textStyle="bold"/>
 
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="1"
                 android:layout_marginTop="10dp"
+                app:cardBackgroundColor="?attr/colorSurfaceVariant"
                 app:cardCornerRadius="12dp"
                 app:cardElevation="4dp">
 
-                <LinearLayout
+                <ScrollView
                     android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:orientation="vertical"
-                    android:padding="16dp">
+                    android:layout_height="match_parent">
 
-                    <TextView
-                        android:id="@+id/txtTx"
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="TX :"
-                        android:textSize="16sp"
-                        android:textStyle="bold"/>
+                        android:orientation="vertical"
+                        android:padding="16dp">
 
-                    <Space
-                        android:layout_width="match_parent"
-                        android:layout_height="20dp"/>
+                        <TextView
+                            android:id="@+id/txtTerminal"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Waiting for communication..."
+                            android:textColor="?attr/colorOnSurface"
+                            android:textSize="16sp"
+                            android:textIsSelectable="true"/>
+<!--                        <TextView-->
+<!--                            android:id="@+id/txtTx"-->
+<!--                            android:layout_width="match_parent"-->
+<!--                            android:layout_height="wrap_content"-->
+<!--                            android:text="TX :"-->
+<!--                            android:textColor="#1976D2"-->
+<!--                            android:textSize="16sp"-->
+<!--                            android:textStyle="bold"/>-->
 
-                    <TextView
-                        android:id="@+id/txtRx"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="RX :"
-                        android:textSize="16sp"
-                        android:textStyle="bold"/>
+<!--                        <Space-->
+<!--                            android:layout_width="match_parent"-->
+<!--                            android:layout_height="20dp"/>-->
 
-                </LinearLayout>
+<!--                        <TextView-->
+<!--                            android:id="@+id/txtRx"-->
+<!--                            android:layout_width="match_parent"-->
+<!--                            android:layout_height="wrap_content"-->
+<!--                            android:text="RX :"-->
+<!--                            android:textColor="#388E3C"-->
+<!--                            android:textSize="16sp"-->
+<!--                            android:textStyle="bold"/>-->
+
+                    </LinearLayout>
+
+                </ScrollView>
 
             </com.google.android.material.card.MaterialCardView>
 

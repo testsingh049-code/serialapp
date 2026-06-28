@@ -5,7 +5,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#000000">
+    android:background="?android:attr/colorBackground">
 
     <!-- Refresh Button -->
     <com.google.android.material.button.MaterialButton
@@ -24,7 +24,7 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_margin="24dp"
-        app:cardBackgroundColor="#FFFFFF"
+        app:cardBackgroundColor="?attr/colorSurface"
         app:cardCornerRadius="20dp"
         app:cardElevation="12dp"
         app:layout_constraintTop_toTopOf="parent"
@@ -45,67 +45,150 @@
                 android:layout_height="wrap_content"
                 android:text="SmartConnect"
                 android:gravity="center"
-                android:textColor="#212121"
+                android:textColor="?attr/colorOnSurface"
                 android:textSize="28sp"
                 android:textStyle="bold"/>
 
+            <!-- Communication Mode -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_marginTop="16dp"
+                android:text="Communication Mode"
+                android:textStyle="bold"
+                android:textSize="16sp"
+                android:textColor="?attr/colorOnSurface"/>
+
+            <RadioGroup
+                android:id="@+id/radioGroupMode"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_marginTop="10dp"
+                android:orientation="horizontal">
+
+                <RadioButton
+                    android:id="@+id/radioSerial"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checked="true"
+                    android:text="Serial"/>
+
+                <RadioButton
+                    android:id="@+id/radioBle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="24dp"
+                    android:text="BLE"/>
+
+            </RadioGroup>
+
             <Space
                 android:layout_width="match_parent"
-                android:layout_height="32dp"/>
+                android:layout_height="24dp"/>
 
-            <!-- COM Port -->
+            <!-- Serial Layout -->
             <LinearLayout
+                android:id="@+id/layoutSerial"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
+                android:orientation="vertical">
+
+                <!-- COM Port -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:layout_width="110dp"
+                        android:layout_height="wrap_content"
+                        android:text="COM Port"
+                        android:textColor="?attr/colorOnSurface"
+                        android:textSize="16sp"
+                        android:textStyle="bold"/>
+
+                    <Spinner
+                        android:id="@+id/spinnerCom"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"/>
+
+                </LinearLayout>
+
+                <Space
+                    android:layout_width="match_parent"
+                    android:layout_height="20dp"/>
+
+                <!-- Baud Rate -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:layout_width="110dp"
+                        android:layout_height="wrap_content"
+                        android:text="Baud Rate"
+                        android:textColor="?attr/colorOnSurface"
+                        android:textSize="16sp"
+                        android:textStyle="bold"/>
+
+                    <Spinner
+                        android:id="@+id/spinnerBaud"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"/>
+
+                </LinearLayout>
+
+                <Space
+                    android:layout_width="match_parent"
+                    android:layout_height="32dp"/>
+
+            </LinearLayout>
+
+            <!-- BLE Layout -->
+            <LinearLayout
+                android:id="@+id/layoutBle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
 
                 <TextView
-                    android:layout_width="110dp"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="COM Port"
-                    android:textColor="#212121"
+                    android:text="Available Devices"
+                    android:textColor="?attr/colorOnSurface"
                     android:textSize="16sp"
                     android:textStyle="bold"/>
 
                 <Spinner
-                    android:id="@+id/spinnerCom"
-                    android:layout_width="0dp"
+                    android:id="@+id/spinnerBle"
+                    android:layout_width="match_parent"
                     android:layout_height="48dp"
-                    android:layout_weight="1"/>
+                    android:layout_marginTop="8dp"/>
 
-            </LinearLayout>
+                <Space
+                    android:layout_width="match_parent"
+                    android:layout_height="16dp"/>
 
-            <Space
-                android:layout_width="match_parent"
-                android:layout_height="20dp"/>
-
-            <!-- Baud Rate -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
-
-                <TextView
-                    android:layout_width="110dp"
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnScanBle"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Baud Rate"
-                    android:textColor="#212121"
-                    android:textSize="16sp"
-                    android:textStyle="bold"/>
+                    android:text="Scan for BLE Devices"/>
 
-                <Spinner
-                    android:id="@+id/spinnerBaud"
-                    android:layout_width="0dp"
-                    android:layout_height="48dp"
-                    android:layout_weight="1"/>
+                <Space
+                    android:layout_width="match_parent"
+                    android:layout_height="32dp"/>
 
             </LinearLayout>
-
-            <Space
-                android:layout_width="match_parent"
-                android:layout_height="32dp"/>
 
             <!-- Connect Button -->
             <com.google.android.material.button.MaterialButton

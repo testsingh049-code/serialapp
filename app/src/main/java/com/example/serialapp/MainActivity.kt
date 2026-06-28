@@ -16,10 +16,17 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
 
-    private var devicesList = mutableListOf<String>()
+    private val devicesList = mutableListOf<String>()
+    private val bleDevicesList = mutableListOf<String>()
 
-    // This will become true once real USB connection succeeds
+    // Will become true once real USB connection succeeds
     private var isConnected = false
+
+    companion object {
+        const val EXTRA_MODE = "MODE"
+        const val MODE_SERIAL = "SERIAL"
+        const val MODE_BLE = "BLE"
+    }
 
     private val baudRates = listOf(
         "9600",
@@ -33,46 +40,112 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        binding.txtStatus.text = "Not Connected"
+        // Initial UI
+        binding.txtStatus.text = "USB Not Connected"
+        binding.txtStatus.setTextColor(getColor(android.R.color.holo_red_dark))
 
-        // Initially hide progress bar
         binding.progressBar.visibility = View.GONE
 
-        // Load baud rates
+        binding.radioSerial.isChecked = true
+        binding.layoutSerial.visibility = View.VISIBLE
+        binding.layoutBle.visibility = View.GONE
+        binding.btnRefresh.visibility = View.VISIBLE
+
+        // Baud Rates
         binding.spinnerBaud.adapter = ArrayAdapter(
             this,
             android.R.layout.simple_spinner_dropdown_item,
             baudRates
         )
 
-        // Refresh USB devices
+        // Load USB devices initially
+        refreshDevices()
+
+        // Refresh USB Devices
         binding.btnRefresh.setOnClickListener {
             refreshDevices()
         }
 
-        // Connect button
-        binding.btnConnect.setOnClickListener {
-            connectDevice()
+        // Radio Buttons
+        binding.radioGroupMode.setOnCheckedChangeListener { _, checkedId ->
+
+            when (checkedId) {
+
+                R.id.radioSerial -> {
+
+                    binding.layoutSerial.visibility = View.VISIBLE
+                    binding.layoutBle.visibility = View.GONE
+                    binding.btnRefresh.visibility = View.VISIBLE
+
+                    binding.txtStatus.text = "USB Not Connected"
+                    binding.txtStatus.setTextColor(getColor(android.R.color.holo_red_dark))
+                }
+
+                R.id.radioBle -> {
+
+                    binding.layoutSerial.visibility = View.GONE
+                    binding.layoutBle.visibility = View.VISIBLE
+                    binding.btnRefresh.visibility = View.GONE
+
+                    binding.txtStatus.text = "Bluetooth Not Connected"
+                    binding.txtStatus.setTextColor(getColor(android.R.color.holo_orange_dark))
+                }
+            }
         }
 
-        // Testing button
-        binding.btnNext.setOnClickListener {
-            startActivity(
-                Intent(
-                    this,
-                    TerminalActivity::class.java
-                )
+        // Connect
+        binding.btnConnect.setOnClickListener {
+
+            if (binding.radioSerial.isChecked) {
+                connectSerial()
+            } else {
+                connectBle()
+            }
+        }
+
+        // Dummy BLE Scan
+        binding.btnScanBle.setOnClickListener {
+
+            bleDevicesList.clear()
+
+            bleDevicesList.add("ESP32 Sensor")
+            bleDevicesList.add("Nordic Thingy")
+            bleDevicesList.add("Mi Band")
+            bleDevicesList.add("BLE Heart Rate")
+
+            binding.spinnerBle.adapter = ArrayAdapter(
+                this,
+                android.R.layout.simple_spinner_dropdown_item,
+                bleDevicesList
             )
+
+            Toast.makeText(
+                this,
+                "BLE Scan Complete",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+
+        // Testing only
+        binding.btnNext.setOnClickListener {
+
+            val intent = Intent(
+                this,
+                TerminalActivity::class.java
+            )
+
+            intent.putExtra(EXTRA_MODE, MODE_SERIAL)
+
+            startActivity(intent)
         }
     }
 
     /**
-     * Refresh available USB devices
+     * Refresh USB Devices
      */
     private fun refreshDevices() {
 
         val usbManager = getSystemService(USB_SERVICE) as UsbManager
-
         val devices = usbManager.deviceList
 
         devicesList.clear()
@@ -84,11 +157,14 @@ class MainActivity : AppCompatActivity() {
         } else {
 
             devices.values.forEach {
-
                 devicesList.add(it.deviceName)
-
             }
 
+            Toast.makeText(
+                this,
+                "${devices.size} device(s) found",
+                Toast.LENGTH_SHORT
+            ).show()
         }
 
         binding.spinnerCom.adapter = ArrayAdapter(
@@ -96,18 +172,12 @@ class MainActivity : AppCompatActivity() {
             android.R.layout.simple_spinner_dropdown_item,
             devicesList
         )
-
-        Toast.makeText(
-            this,
-            "${devicesList.size} device(s) found",
-            Toast.LENGTH_SHORT
-        ).show()
     }
 
     /**
-     * Simulated connection
+     * USB Serial Connection
      */
-    private fun connectDevice() {
+    private fun connectSerial() {
 
         val com = binding.spinnerCom.selectedItem?.toString() ?: ""
         val baud = binding.spinnerBaud.selectedItem?.toString() ?: ""
@@ -137,40 +207,40 @@ class MainActivity : AppCompatActivity() {
         binding.progressBar.visibility = View.VISIBLE
         binding.progressBar.progress = 0
 
-        binding.txtStatus.text = "Connecting..."
+        binding.txtStatus.text = "Connecting to USB..."
 
         lifecycleScope.launch {
 
             for (i in 1..100) {
 
                 delay(20)
-
                 binding.progressBar.progress = i
 
             }
 
             binding.progressBar.visibility = View.GONE
 
-            // **************************************
-            // Later this will become true when
-            // the USB serial port actually connects.
-            // **************************************
+            // Replace this later with actual USB connection result
             isConnected = false
 
             if (isConnected) {
 
-                binding.txtStatus.text = "Connected Successfully"
+                binding.txtStatus.text = "USB Connected"
+                binding.txtStatus.setTextColor(getColor(android.R.color.holo_green_dark))
 
-                startActivity(
-                    Intent(
-                        this@MainActivity,
-                        TerminalActivity::class.java
-                    )
+                val intent = Intent(
+                    this@MainActivity,
+                    TerminalActivity::class.java
                 )
+
+                intent.putExtra(EXTRA_MODE, MODE_SERIAL)
+
+                startActivity(intent)
 
             } else {
 
-                binding.txtStatus.text = "Connection Failed"
+                binding.txtStatus.text = "USB Connection Failed"
+                binding.txtStatus.setTextColor(getColor(android.R.color.holo_red_dark))
 
                 Toast.makeText(
                     this@MainActivity,
@@ -178,7 +248,65 @@ class MainActivity : AppCompatActivity() {
                     Toast.LENGTH_SHORT
                 ).show()
             }
+        }
+    }
 
+    /**
+     * BLE Connection
+     */
+    private fun connectBle() {
+
+        if (bleDevicesList.isEmpty()) {
+
+            Toast.makeText(
+                this,
+                "Please scan for BLE devices first.",
+                Toast.LENGTH_SHORT
+            ).show()
+
+            return
+        }
+
+        val device = binding.spinnerBle.selectedItem?.toString() ?: ""
+
+        if (device.isEmpty()) {
+
+            Toast.makeText(
+                this,
+                "Please select a BLE device.",
+                Toast.LENGTH_SHORT
+            ).show()
+
+            return
+        }
+
+        binding.progressBar.visibility = View.VISIBLE
+        binding.progressBar.progress = 0
+
+        binding.txtStatus.text = "Connecting to Bluetooth..."
+
+        lifecycleScope.launch {
+
+            for (i in 1..100) {
+
+                delay(20)
+                binding.progressBar.progress = i
+
+            }
+
+            binding.progressBar.visibility = View.GONE
+
+            binding.txtStatus.text = "Bluetooth Connected"
+            binding.txtStatus.setTextColor(getColor(android.R.color.holo_green_dark))
+
+            val intent = Intent(
+                this@MainActivity,
+                TerminalActivity::class.java
+            )
+
+            intent.putExtra(EXTRA_MODE, MODE_BLE)
+
+            startActivity(intent)
         }
     }
 }
