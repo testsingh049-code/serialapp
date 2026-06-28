@@ -11,12 +11,14 @@ import androidx.lifecycle.lifecycleScope
 import com.example.serialapp.databinding.ActivityMainBinding
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import android.hardware.usb.UsbDevice
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
 
     private val devicesList = mutableListOf<String>()
+    private val usbDevices = mutableListOf<UsbDevice>()
     private val bleDevicesList = mutableListOf<String>()
 
     // Will become true once real USB connection succeeds
@@ -144,20 +146,21 @@ class MainActivity : AppCompatActivity() {
      * Refresh USB Devices
      */
     private fun refreshDevices() {
-
         val usbManager = getSystemService(USB_SERVICE) as UsbManager
         val devices = usbManager.deviceList
 
         devicesList.clear()
+        usbDevices.clear()
 
         if (devices.isEmpty()) {
-
             devicesList.add("No Devices Found")
-
         } else {
-
-            devices.values.forEach {
-                devicesList.add(it.deviceName)
+            devices.values.forEach { device ->
+                usbDevices.add(device)
+                val displayName =
+                    "${device.productName ?: "Unknown Device"} " +
+                            "(VID:${device.vendorId}, PID:${device.productId})"
+                devicesList.add(displayName)
             }
 
             Toast.makeText(
@@ -178,31 +181,34 @@ class MainActivity : AppCompatActivity() {
      * USB Serial Connection
      */
     private fun connectSerial() {
+        val selectedIndex = binding.spinnerCom.selectedItemPosition
 
-        val com = binding.spinnerCom.selectedItem?.toString() ?: ""
-        val baud = binding.spinnerBaud.selectedItem?.toString() ?: ""
-
-        if (com.isEmpty() || com == "No Devices Found") {
-
+        if (selectedIndex == -1 || usbDevices.isEmpty()) {
             Toast.makeText(
                 this,
-                "Please refresh and select a COM Port.",
+                "No USB device selected.",
                 Toast.LENGTH_SHORT
             ).show()
-
             return
         }
 
-        if (baud.isEmpty()) {
+        val selectedDevice = usbDevices[selectedIndex]
+        val baud = binding.spinnerBaud.selectedItem?.toString() ?: ""
 
+        if (baud.isEmpty()) {
             Toast.makeText(
                 this,
                 "Please select a Baud Rate.",
                 Toast.LENGTH_SHORT
             ).show()
-
             return
         }
+
+        Toast.makeText(
+            this,
+            "Selected: ${selectedDevice.productName}",
+            Toast.LENGTH_SHORT
+        ).show()
 
         binding.progressBar.visibility = View.VISIBLE
         binding.progressBar.progress = 0
