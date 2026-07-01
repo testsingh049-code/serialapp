@@ -12,6 +12,12 @@ import com.example.serialapp.databinding.ActivityMainBinding
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import android.hardware.usb.UsbDevice
+import android.app.PendingIntent
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.IntentFilter
+import com.hoho.android.usbserial.driver.UsbSerialPort
+import com.hoho.android.usbserial.driver.UsbSerialProber
 
 class MainActivity : AppCompatActivity() {
 
@@ -26,6 +32,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_MODE = "MODE"
+        const val EXTRA_CONNECTED = "CONNECTED"
         const val MODE_SERIAL = "SERIAL"
         const val MODE_BLE = "BLE"
     }
@@ -35,6 +42,9 @@ class MainActivity : AppCompatActivity() {
         "38400",
         "115200"
     )
+
+    private val ACTION_USB_PERMISSION =
+        "com.example.serialapp.USB_PERMISSION"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -70,11 +80,8 @@ class MainActivity : AppCompatActivity() {
 
         // Radio Buttons
         binding.radioGroupMode.setOnCheckedChangeListener { _, checkedId ->
-
             when (checkedId) {
-
                 R.id.radioSerial -> {
-
                     binding.layoutSerial.visibility = View.VISIBLE
                     binding.layoutBle.visibility = View.GONE
                     binding.btnRefresh.visibility = View.VISIBLE
@@ -84,7 +91,6 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 R.id.radioBle -> {
-
                     binding.layoutSerial.visibility = View.GONE
                     binding.layoutBle.visibility = View.VISIBLE
                     binding.btnRefresh.visibility = View.GONE
@@ -97,7 +103,6 @@ class MainActivity : AppCompatActivity() {
 
         // Connect
         binding.btnConnect.setOnClickListener {
-
             if (binding.radioSerial.isChecked) {
                 connectSerial()
             } else {
@@ -107,9 +112,7 @@ class MainActivity : AppCompatActivity() {
 
         // Dummy BLE Scan
         binding.btnScanBle.setOnClickListener {
-
             bleDevicesList.clear()
-
             bleDevicesList.add("ESP32 Sensor")
             bleDevicesList.add("Nordic Thingy")
             bleDevicesList.add("Mi Band")
@@ -128,17 +131,29 @@ class MainActivity : AppCompatActivity() {
             ).show()
         }
 
-        // Testing only
+        // Next button to navigate to next screen without connection
         binding.btnNext.setOnClickListener {
-
             val intent = Intent(
                 this,
                 TerminalActivity::class.java
             )
-
             intent.putExtra(EXTRA_MODE, MODE_SERIAL)
-
+            intent.putExtra(EXTRA_CONNECTED, false)
             startActivity(intent)
+        }
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(
+                usbPermissionReceiver,
+                IntentFilter(ACTION_USB_PERMISSION),
+                Context.RECEIVER_NOT_EXPORTED
+            )
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(
+                usbPermissionReceiver,
+                IntentFilter(ACTION_USB_PERMISSION)
+            )
         }
     }
 
@@ -177,6 +192,80 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
+//    Broadcast Receiver
+    private val usbPermissionReceiver = object : BroadcastReceiver() {
+    override fun onReceive(context: Context?, intent: Intent?) {
+        if (intent?.action == ACTION_USB_PERMISSION) {
+            synchronized(this) {
+                val device = intent.getParcelableExtra<UsbDevice>(UsbManager.EXTRA_DEVICE)
+                if (intent.getBooleanExtra(
+                        UsbManager.EXTRA_PERMISSION_GRANTED,
+                        false
+                    )
+                ) {
+                    if (device != null) {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "USB Permission Granted",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                        openUsbConnection(device)
+                    }
+                } else {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "USB Permission Denied",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
+    }
+}
+    // open usb connection
+    private var serialPort: UsbSerialPort? = null
+    private fun openUsbConnection(device: UsbDevice) {
+        val usbManager = getSystemService(USB_SERVICE) as UsbManager
+        val connection = usbManager.openDevice(device)
+        if (connection == null) {
+            Toast.makeText(this, "Failed to open USB Device", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val driver = UsbSerialProber.getDefaultProber().probeDevice(device)
+        if (driver == null) {
+            Toast.makeText(this, "No USB Serial Driver Found", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        serialPort = driver.ports[0]
+        try {
+            serialPort?.open(connection)
+
+            SerialManager.serialPort = serialPort
+            SerialManager.connection = connection
+
+            serialPort?.setParameters(
+                binding.spinnerBaud.selectedItem.toString().toInt(),
+                8,
+                UsbSerialPort.STOPBITS_1,
+                UsbSerialPort.PARITY_NONE
+            )
+
+            binding.txtStatus.text = "USB Connected"
+            binding.txtStatus.setTextColor(getColor(android.R.color.holo_green_dark))
+            Toast.makeText(this, "USB Connected Successfully", Toast.LENGTH_SHORT).show()
+
+            val intent = Intent(this, TerminalActivity::class.java)
+            intent.putExtra(EXTRA_MODE, MODE_SERIAL)
+            intent.putExtra(EXTRA_CONNECTED, true)
+            startActivity(intent)
+
+        } catch (e: Exception) {
+            Toast.makeText(this, e.message ?: "Connection Failed", Toast.LENGTH_LONG).show()
+        }
+    }
+
     /**
      * USB Serial Connection
      */
@@ -193,6 +282,21 @@ class MainActivity : AppCompatActivity() {
         }
 
         val selectedDevice = usbDevices[selectedIndex]
+        val usbManager = getSystemService(USB_SERVICE) as UsbManager
+
+        if (!usbManager.hasPermission(selectedDevice)) {
+            val permissionIntent = PendingIntent.getBroadcast(
+                this,
+                0,
+                Intent(ACTION_USB_PERMISSION),
+                PendingIntent.FLAG_IMMUTABLE
+            )
+            usbManager.requestPermission(selectedDevice, permissionIntent)
+            return
+        }
+ // if permission is already granted
+        openUsbConnection(selectedDevice)
+
         val baud = binding.spinnerBaud.selectedItem?.toString() ?: ""
 
         if (baud.isEmpty()) {
@@ -210,51 +314,50 @@ class MainActivity : AppCompatActivity() {
             Toast.LENGTH_SHORT
         ).show()
 
-        binding.progressBar.visibility = View.VISIBLE
-        binding.progressBar.progress = 0
+//        binding.progressBar.visibility = View.VISIBLE
+//        binding.progressBar.progress = 0
+//
+//        binding.txtStatus.text = "Connecting to USB..."
+//        lifecycleScope.launch {
+//            for (i in 1..100) {
+//                delay(20)
+//                binding.progressBar.progress = i
+//
+//            }
+//
+//            binding.progressBar.visibility = View.GONE
+//
+//            // Replace this later with actual USB connection result
+//            isConnected = false
+//
+//            if (isConnected) {
+//                binding.txtStatus.text = "USB Connected"
+//                binding.txtStatus.setTextColor(getColor(android.R.color.holo_green_dark))
+//
+//                val intent = Intent(
+//                    this@MainActivity,
+//                    TerminalActivity::class.java
+//                )
+//
+//                intent.putExtra(EXTRA_MODE, MODE_SERIAL)
+//                startActivity(intent)
+//
+//            } else {
+//                binding.txtStatus.text = "USB Connection Failed"
+//                binding.txtStatus.setTextColor(getColor(android.R.color.holo_red_dark))
+//
+//                Toast.makeText(
+//                    this@MainActivity,
+//                    "Unable to connect to device.",
+//                    Toast.LENGTH_SHORT
+//                ).show()
+//            }
+//        }
+    }
 
-        binding.txtStatus.text = "Connecting to USB..."
-
-        lifecycleScope.launch {
-
-            for (i in 1..100) {
-
-                delay(20)
-                binding.progressBar.progress = i
-
-            }
-
-            binding.progressBar.visibility = View.GONE
-
-            // Replace this later with actual USB connection result
-            isConnected = false
-
-            if (isConnected) {
-
-                binding.txtStatus.text = "USB Connected"
-                binding.txtStatus.setTextColor(getColor(android.R.color.holo_green_dark))
-
-                val intent = Intent(
-                    this@MainActivity,
-                    TerminalActivity::class.java
-                )
-
-                intent.putExtra(EXTRA_MODE, MODE_SERIAL)
-
-                startActivity(intent)
-
-            } else {
-
-                binding.txtStatus.text = "USB Connection Failed"
-                binding.txtStatus.setTextColor(getColor(android.R.color.holo_red_dark))
-
-                Toast.makeText(
-                    this@MainActivity,
-                    "Unable to connect to device.",
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
-        }
+    override fun onDestroy() {
+        super.onDestroy()
+        unregisterReceiver(usbPermissionReceiver)
     }
 
     /**
@@ -311,6 +414,7 @@ class MainActivity : AppCompatActivity() {
             )
 
             intent.putExtra(EXTRA_MODE, MODE_BLE)
+            intent.putExtra(EXTRA_CONNECTED, true)
 
             startActivity(intent)
         }

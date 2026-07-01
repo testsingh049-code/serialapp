@@ -46,6 +46,7 @@
                     android:layout_weight="1"/>
 
                 <View
+                    android:id="@+id/viewConnectionStatus"
                     android:layout_width="14dp"
                     android:layout_height="14dp"
                     android:background="@drawable/green_circle"/>
