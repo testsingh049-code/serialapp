@@ -18,23 +18,37 @@ import android.content.Context
 import android.content.IntentFilter
 import com.hoho.android.usbserial.driver.UsbSerialPort
 import com.hoho.android.usbserial.driver.UsbSerialProber
+import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothManager
+import android.bluetooth.le.BluetoothLeScanner
+import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanResult
+import android.os.Build
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.core.app.ActivityCompat
 
 class MainActivity : AppCompatActivity() {
-
     private lateinit var binding: ActivityMainBinding
-
     private val devicesList = mutableListOf<String>()
     private val usbDevices = mutableListOf<UsbDevice>()
     private val bleDevicesList = mutableListOf<String>()
+    private val bleDevices = mutableListOf<BluetoothDevice>()
 
     // Will become true once real USB connection succeeds
     private var isConnected = false
 
+    // bluetooth
+    private lateinit var bluetoothManager: BluetoothManager
+    private var bluetoothAdapter: BluetoothAdapter? = null
+    private var bluetoothLeScanner: BluetoothLeScanner? = null
     companion object {
         const val EXTRA_MODE = "MODE"
         const val EXTRA_CONNECTED = "CONNECTED"
         const val MODE_SERIAL = "SERIAL"
         const val MODE_BLE = "BLE"
+        private const val BLE_PERMISSION_REQUEST = 102
     }
 
     private val baudRates = listOf(
@@ -51,6 +65,17 @@ class MainActivity : AppCompatActivity() {
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // initialize bluetooth
+        bluetoothManager = getSystemService(BLUETOOTH_SERVICE) as BluetoothManager
+        bluetoothAdapter = bluetoothManager.adapter
+
+        if (bluetoothAdapter == null) {
+            Toast.makeText(this, "Bluetooth not supported", Toast.LENGTH_LONG).show()
+            finish()
+            return
+        }
+        bluetoothLeScanner = bluetoothAdapter!!.bluetoothLeScanner
 
         // Initial UI
         binding.txtStatus.text = "USB Not Connected"
@@ -112,23 +137,11 @@ class MainActivity : AppCompatActivity() {
 
         // Dummy BLE Scan
         binding.btnScanBle.setOnClickListener {
-            bleDevicesList.clear()
-            bleDevicesList.add("ESP32 Sensor")
-            bleDevicesList.add("Nordic Thingy")
-            bleDevicesList.add("Mi Band")
-            bleDevicesList.add("BLE Heart Rate")
-
-            binding.spinnerBle.adapter = ArrayAdapter(
-                this,
-                android.R.layout.simple_spinner_dropdown_item,
-                bleDevicesList
-            )
-
-            Toast.makeText(
-                this,
-                "BLE Scan Complete",
-                Toast.LENGTH_SHORT
-            ).show()
+            if (!hasBlePermissions()) {
+                requestBlePermissions()
+            } else if (checkBluetooth()) {
+                startBleScan()
+            }
         }
 
         // Next button to navigate to next screen without connection
@@ -313,46 +326,6 @@ class MainActivity : AppCompatActivity() {
             "Selected: ${selectedDevice.productName}",
             Toast.LENGTH_SHORT
         ).show()
-
-//        binding.progressBar.visibility = View.VISIBLE
-//        binding.progressBar.progress = 0
-//
-//        binding.txtStatus.text = "Connecting to USB..."
-//        lifecycleScope.launch {
-//            for (i in 1..100) {
-//                delay(20)
-//                binding.progressBar.progress = i
-//
-//            }
-//
-//            binding.progressBar.visibility = View.GONE
-//
-//            // Replace this later with actual USB connection result
-//            isConnected = false
-//
-//            if (isConnected) {
-//                binding.txtStatus.text = "USB Connected"
-//                binding.txtStatus.setTextColor(getColor(android.R.color.holo_green_dark))
-//
-//                val intent = Intent(
-//                    this@MainActivity,
-//                    TerminalActivity::class.java
-//                )
-//
-//                intent.putExtra(EXTRA_MODE, MODE_SERIAL)
-//                startActivity(intent)
-//
-//            } else {
-//                binding.txtStatus.text = "USB Connection Failed"
-//                binding.txtStatus.setTextColor(getColor(android.R.color.holo_red_dark))
-//
-//                Toast.makeText(
-//                    this@MainActivity,
-//                    "Unable to connect to device.",
-//                    Toast.LENGTH_SHORT
-//                ).show()
-//            }
-//        }
     }
 
     override fun onDestroy() {
@@ -363,29 +336,134 @@ class MainActivity : AppCompatActivity() {
     /**
      * BLE Connection
      */
+
+    // check if bluetooth is ON
+    private fun checkBluetooth(): Boolean {
+        if (bluetoothAdapter == null) {
+            Toast.makeText(this, "Bluetooth not supported", Toast.LENGTH_SHORT).show()
+            return false
+        }
+        if (!bluetoothAdapter!!.isEnabled) {
+            Toast.makeText(this, "Please enable Bluetooth", Toast.LENGTH_SHORT).show()
+            return false
+        }
+        return true
+    }
+
+    private fun hasBlePermissions(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.BLUETOOTH_SCAN
+            ) == PackageManager.PERMISSION_GRANTED &&
+
+                    ActivityCompat.checkSelfPermission(
+                        this,
+                        Manifest.permission.BLUETOOTH_CONNECT
+                    ) == PackageManager.PERMISSION_GRANTED
+        } else {
+            ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    private val scanCallback = object : ScanCallback() {
+        override fun onScanResult(callbackType: Int, result: ScanResult) {
+            val device = result.device
+            val deviceName = if (ActivityCompat.checkSelfPermission(this@MainActivity, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+                device.name ?: "Unknown Device"
+            } else {
+                "Unknown Device"
+            }
+
+            val deviceAddress = device.address
+            val displayString = "$deviceName ($deviceAddress)"
+
+            if (!bleDevicesList.contains(displayString)) {
+                bleDevicesList.add(displayString)
+                bleDevices.add(device)
+                (binding.spinnerBle.adapter as? ArrayAdapter<String>)?.notifyDataSetChanged()
+            }
+        }
+    }
+
+    private fun startBleScan() {
+        bleDevicesList.clear()
+        bleDevices.clear()
+        binding.spinnerBle.adapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_spinner_dropdown_item,
+            bleDevicesList
+        )
+
+        bluetoothLeScanner?.startScan(scanCallback)
+
+        lifecycleScope.launch {
+            delay(5000) // Scan for 5 seconds
+            bluetoothLeScanner?.stopScan(scanCallback)
+            Toast.makeText(this@MainActivity, "Scan Complete", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun requestBlePermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(
+                    Manifest.permission.BLUETOOTH_SCAN,
+                    Manifest.permission.BLUETOOTH_CONNECT
+                ),
+                BLE_PERMISSION_REQUEST
+            )
+        } else {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                ),
+                BLE_PERMISSION_REQUEST
+            )
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == BLE_PERMISSION_REQUEST) {
+            if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
+                if (checkBluetooth()) {
+                    startBleScan()
+                }
+            } else {
+                Toast.makeText(this, "Permissions required for BLE scan", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     private fun connectBle() {
 
         if (bleDevicesList.isEmpty()) {
-
             Toast.makeText(
                 this,
                 "Please scan for BLE devices first.",
                 Toast.LENGTH_SHORT
             ).show()
-
             return
         }
 
         val device = binding.spinnerBle.selectedItem?.toString() ?: ""
 
         if (device.isEmpty()) {
-
             Toast.makeText(
                 this,
                 "Please select a BLE device.",
                 Toast.LENGTH_SHORT
             ).show()
-
             return
         }
 
@@ -397,10 +475,8 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
 
             for (i in 1..100) {
-
                 delay(20)
                 binding.progressBar.progress = i
-
             }
 
             binding.progressBar.visibility = View.GONE
